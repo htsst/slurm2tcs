@@ -1,0 +1,15 @@
+
+STATES = {"ACC": "QUEUED",
+          "QUE": "QUEUED",
+          "RNA": "RUNNING",
+          "RNP": "RUNNING",
+          "RUN": "RUNNING",
+          "RNE": "RUNNING",
+          "RNO": "COMPLETING",
+          "EXT": "COMPLETED",
+          "RJT": "FAILED",
+          "CCL": "CANCELLED",
+          "HLD": "STOPPED",
+          "SPP": "SUSPENDED",
+          "SPD": "SUSPENDED",
+          "RSM": "SUSPENDED"}

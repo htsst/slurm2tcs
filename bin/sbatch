@@ -1,0 +1,114 @@
+#!/usr/bin/env python
+
+import os
+import sys
+
+import re
+
+sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+from slurm2tcs import util
+
+
+def read_script(path):
+
+    with open(path, "r") as file:
+        lines = file.readlines()
+
+    return lines
+
+
+def write_script(path, lines):
+
+    with open(path, "w") as file:
+        file.writelines(lines)
+
+
+def convert_statement_slarm_to_tcs(line):
+
+    statement = line
+    split_line = line.split()
+
+    
+    if split_line[0] == '#SBATCH':
+        if '--time=' in split_line[1]:
+            time = split_line[1][len('--time='):]
+            day, time=time.split('-')
+            hh, mm, ss = time.split(':')
+            hh = int(day) * 24 + int(hh)
+            statement="#PJM -L \"elapse={}:{}:{}\"\n".format(hh, mm, ss)
+        elif '--nodes=' in split_line[1]:
+            nodes = split_line[1][len('--nodes='):]
+            statement="#PJM -L \"node={}\"\n".format(nodes)
+        elif '--mincpus' in split_line[1]:
+            mincpus = split_line[1][len('--mincpus='):]
+            statement="#PJM --mpi \"max-proc-per-node={}\"\n".format(mincpus)
+        elif '--exclusive' in split_line[1]:
+            statement=""
+        elif '--job-name=' in split_line[1]:
+            job_name = split_line[1][len('--job-name='):]
+            statement="#PJM --name \"{}\"\n".format(job_name)
+        elif '--output=' in split_line[1]:
+            output = split_line[1][len('--output='):]
+            statement="#PJM -o \"{}\"\n".format(output)
+        elif '--error=' in split_line[1]:
+            error = split_line[1][len('--error='):]
+            statement="#PJM -e \"{}\"\n".format(error)
+        elif '--partition=' in split_line[1]:
+            partition = split_line[1][len('--partition='):]
+            statement="#PJM -L \"rscgrp={}\"\n".format(partition)
+
+    return statement
+
+
+def generate_tcs_script(slurm_script_filename, prefix = "tcs_"):
+
+    dirname = os.path.dirname(slurm_script_filename)
+    basename = os.path.basename(slurm_script_filename)
+    tcs_script_filename = os.path.join(dirname, prefix + basename)
+    
+    output_lines = []
+
+    input_lines =read_script(slurm_script_filename)
+    
+    for line in input_lines:
+        output_lines.append(convert_statement_slarm_to_tcs(line))
+
+    write_script(tcs_script_filename, output_lines)
+
+    return tcs_script_filename
+
+
+def convert_tcs_message_to_slurm(tcs_message):
+
+    pattern = re.compile('\[INFO\] PJM (\d+) pjsub Job (\d+) submitted.')
+    result = pattern.match(tcs_message)
+    job_id = result.group().split()[5]
+
+    return 'Submitted batch job {}\n'.format(job_id)
+
+
+def run(slurm_script_filename):
+
+    tcs_script_filename = generate_tcs_script(slurm_script_filename)
+
+    cmd = ['pjsub', tcs_script_filename]
+    returncode, stdout, stderr = util.call(cmd)
+    if returncode == 0:
+        message = convert_tcs_message_to_slurm(stdout)
+        sys.stdout.write(message)
+        return 0
+    else:
+        sys.stderr.write(stderr)
+        return 1
+
+
+def main():
+
+    slurm_script = sys.argv[1]
+    return run(slurm_script)
+
+
+if __name__ == '__main__':
+    main()
+
+    

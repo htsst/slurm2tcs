@@ -1,0 +1,68 @@
+#!/usr/bin/env python
+
+import argparse
+import os
+import sys
+
+sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+from slurm2tcs import tcs, util
+
+
+def convert_tcs_message_to_slurm(message):
+    message = message.split()
+
+    if not len(message) > 25:
+        return ""
+
+    jobid = message[24]
+    state = tcs.STATES[message[27]]
+    ec, pc, sn = message[41], message[42], message[43]
+
+    exitcode = "{}:{}".format(pc, sn)
+
+    return " {}\t{}\n".format(state, exitcode)
+
+
+def run(jobid):
+
+    cmd = ['pjstat', '-H', '-v', jobid]
+    returncode, stdout, stderr = util.call(cmd)
+    if returncode == 0:
+        message = convert_tcs_message_to_slurm(stdout)
+        sys.stdout.write(message)
+        return 0
+    else:
+        sys.stdout.write(stderr)
+        return 1
+
+
+def main():
+
+    parser = argparse.ArgumentParser(add_help=False)
+    parser.add_argument('--noheader',
+                        help='No heading will be added to the output. The default action is to display a header.',
+                        action='store_true')
+    parser.add_argument('--job',
+                        help='',
+                        metavar='jobid')
+    parser.add_argument('--format',
+                        help='Comma separated list of fields. (use "--helpformat" for a list of available fields).',
+                        metavar='format')
+    parser.add_argument('--help',
+                        action='store_true')
+    args = parser.parse_args()
+
+    if args.help:
+        parser.print_help()
+        exit(0)
+
+    # We only accept the format like 'sacct --job=%s --noheader --format=state,exitcode'.
+    assert args.noheader == True
+    assert args.format == 'state,exitcode'
+
+    jobid = args.job
+    return run(jobid)
+
+
+if __name__ == '__main__':
+    main()

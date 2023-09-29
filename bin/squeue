@@ -1,0 +1,67 @@
+#!/usr/bin/env python
+
+import argparse
+import os
+import sys
+
+sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+from slurm2tcs import tcs, util
+
+
+def convert_tcs_message_to_slurm(message):
+    message = message.split()
+
+    if len(message) == 0:
+        return ""
+
+    jobid = message[24]
+    state = tcs.STATES[message[27]]
+    
+    return "{}\t{}\n".format(jobid, state)
+
+
+def run(jobid):
+
+    cmd = ['pjstat', '-E', '-v', jobid]
+    returncode, stdout, stderr = util.call(cmd)
+    if returncode == 0:
+        message = convert_tcs_message_to_slurm(stdout)
+        sys.stdout.write(message)
+        return 0
+    else:
+        sys.stderr.write(stderr)
+        return 1
+
+
+def main():
+
+    parser = argparse.ArgumentParser(add_help=False)
+    parser.add_argument('--noheader',
+                        action='store_true',
+                        help='Do not print a header on the output')
+    parser.add_argument('--job',
+                        help='comma separated list of jobs IDs to view, default is all',
+                        metavar='jobid')
+    parser.add_argument('--Format',
+                        help='format specification',
+                        metavar='format')
+    parser.add_argument('--help',
+                        action='store_true')
+    args = parser.parse_args()
+
+    if args.help:
+        parser.print_help()
+        exit(0)
+
+    # We only accept the format like 'squeue --job=%s --noheader --Format=jobid,state'.
+    assert args.noheader == True
+    assert args.Format == 'jobid,state'
+
+    jobid = args.job
+
+    return run(jobid)
+
+    
+if __name__ == '__main__':
+    main()
+    
