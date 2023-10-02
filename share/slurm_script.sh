@@ -6,7 +6,7 @@
 #SBATCH --job-name=sample
 #SBATCH --output=sample.log
 #SBATCH --error=sample.log
-#SBARCH --partition=small
+#SBATCH --partition=small
 # No account group specified
 echo "Hello World"
 sleep 130
